@@ -15,22 +15,24 @@ interface Message {
   isUser: boolean;
   isError?: boolean;
   images?: string[];
+  audioUrl?: string;
 }
 
 const IMAGE_GEN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
+const MUSIC_GEN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-music`;
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "Hello! I'm your **T20-CLASSIC AI** assistant. I can chat in any language and generate images. How can I help you today? 🚀",
+      content: "Hello! I'm your **T20-CLASSIC AI** assistant. I can chat in any language, generate images, and create music. How can I help you today? 🚀",
       isUser: false,
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState("t20-pro");
   const [modelName, setModelName] = useState("T20-CLASSIC Pro");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adOpen, setAdOpen] = useState(false);
   const [adMessage, setAdMessage] = useState("");
   const adCallbackRef = useRef<(() => void) | null>(null);
@@ -91,6 +93,23 @@ const Index = () => {
     return { text: data.text || "", images: imageUrls };
   };
 
+  const generateMusic = async (prompt: string): Promise<string> => {
+    const resp = await fetch(MUSIC_GEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ prompt, duration: 30 }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error || "Music generation failed");
+    }
+    const data = await resp.json();
+    return `data:audio/mpeg;base64,${data.audio}`;
+  };
+
   const handleSendMessage = async (content: string) => {
     const userMessage: Message = { id: Date.now().toString(), content, isUser: true };
     setMessages((prev) => [...prev, userMessage]);
@@ -114,7 +133,7 @@ const Index = () => {
         setIsTyping(false);
       },
       onDone: async () => {
-        // Check if the AI requested image generation
+        // Check for image generation
         if (assistantContent.trim().startsWith("[IMAGE_REQUEST]")) {
           const imagePrompt = assistantContent.replace("[IMAGE_REQUEST]", "").trim();
           setMessages((prev) =>
@@ -135,6 +154,30 @@ const Index = () => {
             toast.error(err.message || "Image generation failed");
             setMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, image generation failed. Please try again.", isError: true } : m)
+            );
+          }
+        }
+        // Check for music generation
+        else if (assistantContent.trim().startsWith("[MUSIC_REQUEST]")) {
+          const musicPrompt = assistantContent.replace("[MUSIC_REQUEST]", "").trim();
+          setMessages((prev) =>
+            prev.map((m) => m.id === assistantId ? { ...m, content: "🎵 Generating music... This may take a moment." } : m)
+          );
+          setIsTyping(true);
+          try {
+            const audioUrl = await generateMusic(musicPrompt);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: "Here's your generated music! 🎶", audioUrl }
+                  : m
+              )
+            );
+            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: `[Generated music: ${musicPrompt}]` }];
+          } catch (err: any) {
+            toast.error(err.message || "Music generation failed");
+            setMessages((prev) =>
+              prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, music generation failed. Please try again.", isError: true } : m)
             );
           }
         } else {
@@ -160,6 +203,7 @@ const Index = () => {
 
   return (
     <div className="flex h-screen overflow-hidden relative">
+      {/* Mobile overlay */}
       {isMobile && sidebarOpen && (
         <div
           className="fixed inset-0 bg-background/80 backdrop-blur-sm z-30"
@@ -167,13 +211,15 @@ const Index = () => {
         />
       )}
 
+      {/* Sidebar */}
       <div
-        className={`
-          ${isMobile ? "fixed inset-y-0 left-0 z-40" : "relative"}
-          transition-all duration-200 ease-out
-          ${sidebarOpen ? (isMobile ? "translate-x-0" : "w-64") : (isMobile ? "-translate-x-full" : "w-0")}
-          overflow-hidden flex-shrink-0
-        `}
+        className={cn(
+          isMobile ? "fixed inset-y-0 left-0 z-40" : "relative",
+          "transition-all duration-200 ease-out overflow-hidden flex-shrink-0",
+          sidebarOpen
+            ? isMobile ? "translate-x-0 w-64" : "w-64"
+            : isMobile ? "-translate-x-full w-64" : "w-0"
+        )}
       >
         <div className="w-64 h-full">
           <ChatSidebar selectedModel={selectedModel} onModelSelect={handleModelSelect} />
@@ -193,7 +239,7 @@ const Index = () => {
           <div className="flex-1 text-center">
             <h1 className="text-lg font-extrabold gradient-text">T20-CLASSIC AI</h1>
             <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-medium">
-              Multilingual • Image Generation • Code
+              Multilingual • Image • Music • Code
             </p>
           </div>
           <button
@@ -214,7 +260,8 @@ const Index = () => {
               isUser={message.isUser}
               isError={message.isError}
               images={message.images}
-              onDownloadAd={() => showAd("Downloading your image...")}
+              audioUrl={message.audioUrl}
+              onDownloadAd={() => showAd("Downloading...")}
             />
           ))}
           {isTyping && <TypingIndicator />}
@@ -239,3 +286,7 @@ const Index = () => {
 };
 
 export default Index;
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
+}
