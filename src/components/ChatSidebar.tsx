@@ -1,4 +1,4 @@
-import { Brain, Rocket, Shield, Zap, Sparkles, Globe, ImageIcon, Code, Music } from "lucide-react";
+import { Brain, Rocket, Shield, Zap, Sparkles, Globe, ImageIcon, Code, Music, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChatSidebarProps {
@@ -16,6 +16,7 @@ const capabilities = [
   { label: "Multilingual Chat", icon: Globe },
   { label: "Image Generation", icon: ImageIcon },
   { label: "Music Generation", icon: Music },
+  { label: "Song Search & Download", icon: Search },
   { label: "Code Generation", icon: Code },
   { label: "Problem Solving", icon: Sparkles },
 ];

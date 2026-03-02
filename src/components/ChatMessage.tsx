@@ -1,7 +1,15 @@
-import { Bot, User, Download, Play, Pause } from "lucide-react";
+import { Bot, User, Download, Play, Pause, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useState, useRef } from "react";
+
+export interface SongResult {
+  id: string;
+  title: string;
+  artist: string;
+  duration: number;
+  thumbnail: string;
+}
 
 interface ChatMessageProps {
   content: string;
@@ -9,7 +17,10 @@ interface ChatMessageProps {
   isError?: boolean;
   images?: string[];
   audioUrl?: string;
+  audioTitle?: string;
+  songResults?: SongResult[];
   onDownloadAd?: () => void;
+  onPlaySong?: (song: SongResult) => void;
 }
 
 const handleDownload = async (url: string, index: number) => {
@@ -29,16 +40,39 @@ const handleDownload = async (url: string, index: number) => {
   }
 };
 
-const handleAudioDownload = (audioUrl: string) => {
-  const a = document.createElement("a");
-  a.href = audioUrl;
-  a.download = `t20-classic-music-${Date.now()}.mp3`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+const handleAudioDownload = async (audioUrl: string, title?: string) => {
+  try {
+    const response = await fetch(audioUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `${title || "t20-classic-music"}-${Date.now()}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    // For data URIs, download directly
+    const a = document.createElement("a");
+    a.href = audioUrl;
+    a.download = `${title || "t20-classic-music"}-${Date.now()}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 };
 
-export const ChatMessage = ({ content, isUser, isError = false, images, audioUrl, onDownloadAd }: ChatMessageProps) => {
+const formatDuration = (seconds: number) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
+export const ChatMessage = ({
+  content, isUser, isError = false, images, audioUrl, audioTitle,
+  songResults, onDownloadAd, onPlaySong
+}: ChatMessageProps) => {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -103,6 +137,7 @@ export const ChatMessage = ({ content, isUser, isError = false, images, audioUrl
             </div>
           )}
 
+          {/* Audio player for generated/streamed music */}
           {audioUrl && (
             <div className="mb-3 flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/20">
               <button
@@ -113,16 +148,46 @@ export const ChatMessage = ({ content, isUser, isError = false, images, audioUrl
                 {playing ? <Pause className="w-4 h-4 text-primary-foreground" /> : <Play className="w-4 h-4 text-primary-foreground ml-0.5" />}
               </button>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-foreground/80">🎵 Generated Music</div>
+                <div className="text-xs font-semibold text-foreground/80 truncate">{audioTitle ? `🎵 ${audioTitle}` : "🎵 Generated Music"}</div>
                 <div className="text-[10px] text-muted-foreground">Tap play to listen</div>
               </div>
               <button
-                onClick={() => { onDownloadAd?.(); handleAudioDownload(audioUrl); }}
+                onClick={() => { onDownloadAd?.(); handleAudioDownload(audioUrl, audioTitle); }}
                 className="p-2 rounded-lg bg-background/50 border border-border/30 hover:bg-primary hover:text-primary-foreground transition-all duration-200"
                 aria-label="Download music"
               >
                 <Download className="w-4 h-4" />
               </button>
+            </div>
+          )}
+
+          {/* Song search results */}
+          {songResults && songResults.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              {songResults.map((song) => (
+                <div
+                  key={song.id}
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-secondary/20 border border-border/15 hover:bg-secondary/40 transition-all group/song cursor-pointer"
+                  onClick={() => onPlaySong?.(song)}
+                >
+                  {song.thumbnail && (
+                    <img src={song.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-foreground/90 truncate">{song.title}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{song.artist} • {formatDuration(song.duration)}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onPlaySong?.(song); }}
+                      className="p-1.5 rounded-lg bg-primary/20 hover:bg-primary text-primary hover:text-primary-foreground transition-all"
+                      aria-label="Play & download"
+                    >
+                      <Play className="w-3.5 h-3.5 ml-0.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
