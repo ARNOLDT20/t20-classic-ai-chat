@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu, Plus } from "lucide-react";
 import { ChatSidebar } from "@/components/ChatSidebar";
-import { ChatMessage, type SongResult } from "@/components/ChatMessage";
+import { ChatMessage } from "@/components/ChatMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { ChatInput } from "@/components/ChatInput";
 import { AdInterstitial } from "@/components/AdInterstitial";
@@ -15,16 +15,11 @@ interface Message {
   isUser: boolean;
   isError?: boolean;
   images?: string[];
-  audioUrl?: string;
-  audioTitle?: string;
-  songResults?: SongResult[];
 }
 
 const BASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const AUTH_HEADER = { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` };
 const IMAGE_GEN_URL = `${BASE_URL}/functions/v1/generate-image`;
-const MUSIC_GEN_URL = `${BASE_URL}/functions/v1/generate-music`;
-const SONG_SEARCH_URL = `${BASE_URL}/functions/v1/song-search`;
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
@@ -34,7 +29,7 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
-      content: "Hello! I'm your **T20-CLASSIC AI** assistant. I can chat in any language, generate images, create music, and **search & download songs**. How can I help you today? 🚀",
+      content: "Hello! I'm your **T20-CLASSIC AI** assistant. I can chat in any language, generate images, and **help you write, debug & architect code** for any project. How can I help you today? 🚀",
       isUser: false,
     },
   ]);
@@ -99,76 +94,6 @@ const Index = () => {
     return { text: data.text || "", images: imageUrls };
   };
 
-  const generateMusic = async (prompt: string): Promise<string> => {
-    const resp = await fetch(MUSIC_GEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...AUTH_HEADER },
-      body: JSON.stringify({ prompt, duration: 30 }),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(data.error || "Music generation failed");
-    }
-    const data = await resp.json();
-    return `data:audio/mpeg;base64,${data.audio}`;
-  };
-
-  const searchSongs = async (query: string): Promise<SongResult[]> => {
-    const resp = await fetch(SONG_SEARCH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...AUTH_HEADER },
-      body: JSON.stringify({ action: "search", query }),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(data.error || "Song search failed");
-    }
-    const data = await resp.json();
-    return data.results || [];
-  };
-
-  const handlePlaySong = async (song: SongResult) => {
-    showAd("Loading your song...", async () => {
-      const loadingId = Date.now().toString();
-      setMessages((prev) => [
-        ...prev,
-        { id: loadingId, content: `⏳ Loading **${song.title}**...`, isUser: false },
-      ]);
-      setIsTyping(true);
-
-      try {
-        const resp = await fetch(SONG_SEARCH_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...AUTH_HEADER },
-          body: JSON.stringify({ action: "stream", videoId: song.id }),
-        });
-        if (!resp.ok) {
-          const data = await resp.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to load song");
-        }
-        const data = await resp.json();
-
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === loadingId
-              ? { ...m, content: `Now playing:`, audioUrl: data.audioUrl, audioTitle: `${data.title} — ${data.artist}` }
-              : m
-          )
-        );
-      } catch (err: any) {
-        toast.error(err.message || "Failed to load song");
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === loadingId
-              ? { ...m, content: "Sorry, couldn't load this song. Try another one.", isError: true }
-              : m
-          )
-        );
-      }
-      setIsTyping(false);
-    });
-  };
-
   const handleSendMessage = async (content: string) => {
     const userMessage: Message = { id: Date.now().toString(), content, isUser: true };
     setMessages((prev) => [...prev, userMessage]);
@@ -192,7 +117,6 @@ const Index = () => {
         setIsTyping(false);
       },
       onDone: async () => {
-        // Image generation
         if (assistantContent.trim().startsWith("[IMAGE_REQUEST]")) {
           const imagePrompt = assistantContent.replace("[IMAGE_REQUEST]", "").trim();
           setMessages((prev) =>
@@ -213,60 +137,6 @@ const Index = () => {
             toast.error(err.message || "Image generation failed");
             setMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, image generation failed.", isError: true } : m)
-            );
-          }
-        }
-        // Music generation
-        else if (assistantContent.trim().startsWith("[MUSIC_REQUEST]")) {
-          const musicPrompt = assistantContent.replace("[MUSIC_REQUEST]", "").trim();
-          setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, content: "🎵 Generating music..." } : m)
-          );
-          setIsTyping(true);
-          try {
-            const audioUrl = await generateMusic(musicPrompt);
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: "Here's your generated music! 🎶", audioUrl }
-                  : m
-              )
-            );
-            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: `[Generated music: ${musicPrompt}]` }];
-          } catch (err: any) {
-            toast.error(err.message || "Music generation failed");
-            setMessages((prev) =>
-              prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, music generation failed.", isError: true } : m)
-            );
-          }
-        }
-        // Song search
-        else if (assistantContent.trim().startsWith("[SONG_SEARCH]")) {
-          const searchQuery = assistantContent.replace("[SONG_SEARCH]", "").trim();
-          setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, content: `🔍 Searching for "${searchQuery}"...` } : m)
-          );
-          setIsTyping(true);
-          try {
-            const results = await searchSongs(searchQuery);
-            if (results.length === 0) {
-              setMessages((prev) =>
-                prev.map((m) => m.id === assistantId ? { ...m, content: `No songs found for "${searchQuery}". Try a different search.` } : m)
-              );
-            } else {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, content: `Found ${results.length} results for "**${searchQuery}**". Tap a song to play & download:`, songResults: results }
-                    : m
-                )
-              );
-            }
-            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: `[Song search: ${searchQuery}]` }];
-          } catch (err: any) {
-            toast.error(err.message || "Song search failed");
-            setMessages((prev) =>
-              prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, song search failed.", isError: true } : m)
             );
           }
         } else {
@@ -318,7 +188,7 @@ const Index = () => {
           <div className="flex-1 text-center">
             <h1 className="text-lg font-extrabold gradient-text">T20-CLASSIC AI</h1>
             <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-medium">
-              Multilingual • Image • Music • Songs • Code
+              Multilingual • Image • Code • Debug
             </p>
           </div>
           <button onClick={handleNewChat} className="p-2 rounded-xl hover:bg-secondary/50 transition-all duration-200 text-muted-foreground hover:text-foreground" aria-label="New chat">
@@ -334,11 +204,7 @@ const Index = () => {
               isUser={message.isUser}
               isError={message.isError}
               images={message.images}
-              audioUrl={message.audioUrl}
-              audioTitle={message.audioTitle}
-              songResults={message.songResults}
               onDownloadAd={() => showAd("Downloading...")}
-              onPlaySong={handlePlaySong}
             />
           ))}
           {isTyping && <TypingIndicator />}
