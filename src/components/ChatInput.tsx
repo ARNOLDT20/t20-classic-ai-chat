@@ -33,7 +33,7 @@ export const ChatInput = ({ onSend, disabled = false }: ChatInputProps) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything… generate images, music, or search songs 🎵"
+          placeholder="Ask anything… generate images, write code, debug projects 💻"
           disabled={disabled}
           rows={1}
           className="min-h-[52px] max-h-[140px] resize-none bg-secondary/40 border-border/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 text-foreground placeholder:text-muted-foreground/70 px-4 py-3.5 text-sm rounded-xl transition-all duration-200"
