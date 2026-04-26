@@ -37,6 +37,7 @@ const WELCOME: Message = {
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [isTyping, setIsTyping] = useState(false);
+  const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const [selectedModel, setSelectedModel] = useState("t20-pro");
   const [modelName, setModelName] = useState("T20-CLASSIC Pro");
   const [sidebarOpen, setSidebarOpen] = useState(false);
