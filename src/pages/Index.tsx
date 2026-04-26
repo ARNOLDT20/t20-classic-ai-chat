@@ -278,7 +278,7 @@ const Index = () => {
 
         {/* Input */}
         <div className="relative z-10">
-          <ChatInput onSend={handleSendMessage} disabled={isTyping} />
+          <ChatInput onSend={handleSendMessage} disabled={waitingFirstToken} />
         </div>
       </div>
       <AdInterstitial open={adOpen} onClose={handleAdClose} message={adMessage} />
