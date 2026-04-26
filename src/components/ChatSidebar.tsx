@@ -1,5 +1,6 @@
-import { Sparkles, Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain } from "lucide-react";
+import { Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrainLogo } from "./BrainLogo";
 
 interface ChatSidebarProps {
   selectedModel: string;
