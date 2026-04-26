@@ -50,7 +50,7 @@ export async function streamChat({
   const decoder = new TextDecoder();
   let buffer = "";
 
-  // Batch deltas via rAF for smoother + faster perceived rendering
+  // Flush deltas on microtask for the lowest-latency feel
   let pending = "";
   let scheduled = false;
   const flush = () => {
@@ -61,10 +61,14 @@ export async function streamChat({
     scheduled = false;
   };
   const schedule = (chunk: string) => {
+    if (!firstTokenFired) {
+      firstTokenFired = true;
+      onFirstToken?.();
+    }
     pending += chunk;
     if (!scheduled) {
       scheduled = true;
-      requestAnimationFrame(flush);
+      queueMicrotask(flush);
     }
   };
 
