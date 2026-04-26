@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Menu, Plus } from "lucide-react";
+import { Menu, Plus, Sparkles } from "lucide-react";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ChatMessage } from "@/components/ChatMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
@@ -14,6 +14,7 @@ interface Message {
   content: string;
   isUser: boolean;
   isError?: boolean;
+  isStreaming?: boolean;
   images?: string[];
 }
 
@@ -25,14 +26,15 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
+const WELCOME: Message = {
+  id: "welcome",
+  content:
+    "Hello 👋 I'm **T20-CLASSIC AI**. Ask me anything — I can chat in any language, generate images, write & debug code, and architect entire projects. What are we building today? 🚀",
+  isUser: false,
+};
+
 const Index = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      content: "Hello! I'm your **T20-CLASSIC AI** assistant. I can chat in any language, generate images, and **help you write, debug & architect code** for any project. How can I help you today? 🚀",
-      isUser: false,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState("t20-pro");
   const [modelName, setModelName] = useState("T20-CLASSIC Pro");
@@ -42,6 +44,7 @@ const Index = () => {
   const adCallbackRef = useRef<(() => void) | null>(null);
   const isMobile = useIsMobile();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const showAd = useCallback((message: string, callback?: () => void) => {
     setAdMessage(message);
@@ -55,8 +58,14 @@ const Index = () => {
     adCallbackRef.current = null;
   }, []);
 
+  // Auto-scroll only when near bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const c = scrollContainerRef.current;
+    if (!c) return;
+    const nearBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 200;
+    if (nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [messages, isTyping]);
 
   const handleModelSelect = (model: string) => {
@@ -71,7 +80,7 @@ const Index = () => {
     showAd(`Switching to ${name}...`, () => {
       setMessages((prev) => [
         ...prev,
-        { id: Date.now().toString(), content: `Model switched to **${name}**`, isUser: false },
+        { id: Date.now().toString(), content: `Switched to **${name}** ⚡`, isUser: false },
       ]);
     });
     if (isMobile) setSidebarOpen(false);
@@ -102,25 +111,32 @@ const Index = () => {
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content }];
     const assistantId = (Date.now() + 1).toString();
     let assistantContent = "";
+    let started = false;
 
     await streamChat({
       messages: chatHistoryRef.current,
       onDelta: (chunk) => {
         assistantContent += chunk;
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && !last.isUser && last.id === assistantId) {
-            return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
-          }
-          return [...prev, { id: assistantId, content: assistantContent, isUser: false }];
-        });
-        setIsTyping(false);
+        if (!started) {
+          started = true;
+          setIsTyping(false);
+          setMessages((prev) => [
+            ...prev,
+            { id: assistantId, content: assistantContent, isUser: false, isStreaming: true },
+          ]);
+        } else {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, content: assistantContent } : m))
+          );
+        }
       },
       onDone: async () => {
         if (assistantContent.trim().startsWith("[IMAGE_REQUEST]")) {
           const imagePrompt = assistantContent.replace("[IMAGE_REQUEST]", "").trim();
           setMessages((prev) =>
-            prev.map((m) => m.id === assistantId ? { ...m, content: "🎨 Generating image..." } : m)
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: "🎨 Generating image…", isStreaming: false } : m
+            )
           );
           setIsTyping(true);
           try {
@@ -128,19 +144,32 @@ const Index = () => {
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: result.text || "Here's your generated image:", images: result.images }
+                  ? { ...m, content: result.text || "Here's your generated image:", images: result.images, isStreaming: false }
                   : m
               )
             );
-            chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: `[Generated image: ${imagePrompt}]` }];
+            chatHistoryRef.current = [
+              ...chatHistoryRef.current,
+              { role: "assistant", content: `[Generated image: ${imagePrompt}]` },
+            ];
           } catch (err: any) {
             toast.error(err.message || "Image generation failed");
             setMessages((prev) =>
-              prev.map((m) => m.id === assistantId ? { ...m, content: "Sorry, image generation failed.", isError: true } : m)
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: "Sorry, image generation failed.", isError: true, isStreaming: false }
+                  : m
+              )
             );
           }
         } else {
-          chatHistoryRef.current = [...chatHistoryRef.current, { role: "assistant", content: assistantContent }];
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, isStreaming: false } : m))
+          );
+          chatHistoryRef.current = [
+            ...chatHistoryRef.current,
+            { role: "assistant", content: assistantContent },
+          ];
         }
         setIsTyping(false);
       },
@@ -152,18 +181,19 @@ const Index = () => {
   };
 
   const handleNewChat = () => {
-    showAd("Starting fresh conversation...", () => {
+    showAd("Starting fresh conversation…", () => {
       chatHistoryRef.current = [];
-      setMessages([
-        { id: Date.now().toString(), content: "New conversation started. How can I help you? 🚀", isUser: false },
-      ]);
+      setMessages([{ ...WELCOME, id: Date.now().toString() }]);
     });
   };
 
   return (
     <div className="flex h-screen overflow-hidden relative">
       {isMobile && sidebarOpen && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-30" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 bg-background/70 backdrop-blur-md z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
       <div
@@ -180,43 +210,68 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="glass-effect border-b border-border/20 flex items-center py-3 px-4 gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-xl hover:bg-secondary/50 transition-all duration-200 text-muted-foreground hover:text-foreground" aria-label="Toggle sidebar">
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* Subtle grid backdrop */}
+        <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
+
+        {/* Header */}
+        <header className="relative z-10 glass-strong border-b border-border/40 flex items-center py-2.5 px-4 gap-2">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 rounded-lg hover:bg-secondary/70 transition-all text-muted-foreground hover:text-foreground"
+            aria-label="Toggle sidebar"
+          >
             <Menu className="w-5 h-5" />
           </button>
-          <div className="flex-1 text-center">
-            <h1 className="text-lg font-extrabold gradient-text">T20-CLASSIC AI</h1>
-            <p className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-medium">
-              Multilingual • Image • Code • Debug
-            </p>
+          <div className="flex-1 flex items-center justify-center gap-2.5">
+            <div className="w-7 h-7 gradient-brand rounded-lg flex items-center justify-center shadow-md glow-sm">
+              <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+            </div>
+            <div className="text-center">
+              <h1 className="text-sm font-extrabold gradient-text leading-none">T20-CLASSIC AI</h1>
+              <div className="flex items-center justify-center gap-1.5 mt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                <span className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-semibold">
+                  {isTyping ? "Thinking" : "Ready"} · {modelName}
+                </span>
+              </div>
+            </div>
           </div>
-          <button onClick={handleNewChat} className="p-2 rounded-xl hover:bg-secondary/50 transition-all duration-200 text-muted-foreground hover:text-foreground" aria-label="New chat">
+          <button
+            onClick={handleNewChat}
+            className="p-2 rounded-lg hover:bg-secondary/70 transition-all text-muted-foreground hover:text-foreground"
+            aria-label="New chat"
+          >
             <Plus className="w-5 h-5" />
           </button>
+        </header>
+
+        {/* Messages */}
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto chat-scroll relative z-10"
+        >
+          <div className="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-6">
+            {messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                content={message.content}
+                isUser={message.isUser}
+                isError={message.isError}
+                isStreaming={message.isStreaming}
+                images={message.images}
+                onDownloadAd={() => showAd("Downloading…")}
+              />
+            ))}
+            {isTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto chat-scroll p-5 flex flex-col gap-5">
-          {messages.map((message) => (
-            <ChatMessage
-              key={message.id}
-              content={message.content}
-              isUser={message.isUser}
-              isError={message.isError}
-              images={message.images}
-              onDownloadAd={() => showAd("Downloading...")}
-            />
-          ))}
-          {isTyping && <TypingIndicator />}
-          <div ref={messagesEndRef} />
+        {/* Input */}
+        <div className="relative z-10">
+          <ChatInput onSend={handleSendMessage} disabled={isTyping} />
         </div>
-
-        <div className="border-t border-border/15 bg-card/20 backdrop-blur-sm px-4 py-1.5 flex justify-between text-[9px] text-muted-foreground/70">
-          <span>Model: <span className="text-primary font-medium">{modelName}</span></span>
-          <span>Status: <span className={isTyping ? "text-accent font-medium" : "text-primary/80 font-medium"}>{isTyping ? "Thinking..." : "Ready"}</span></span>
-        </div>
-
-        <ChatInput onSend={handleSendMessage} disabled={isTyping} />
       </div>
       <AdInterstitial open={adOpen} onClose={handleAdClose} message={adMessage} />
     </div>
