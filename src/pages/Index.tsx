@@ -234,15 +234,13 @@ const Index = () => {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 flex items-center justify-center gap-2.5">
-            <div className="w-7 h-7 gradient-brand rounded-lg flex items-center justify-center shadow-md glow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
-            </div>
+            <BrainLogo size={30} />
             <div className="text-center">
               <h1 className="text-sm font-extrabold gradient-text leading-none">T20-CLASSIC AI</h1>
               <div className="flex items-center justify-center gap-1.5 mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                 <span className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-semibold">
-                  {isTyping ? "Thinking" : "Ready"} · {modelName}
+                  {isTyping ? "Thinking" : waitingFirstToken ? "Streaming" : "Ready"} · {modelName}
                 </span>
               </div>
             </div>
