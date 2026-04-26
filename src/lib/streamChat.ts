@@ -7,14 +7,17 @@ export async function streamChat({
   onDelta,
   onDone,
   onError,
+  onFirstToken,
   signal,
 }: {
   messages: ChatMsg[];
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (err: string) => void;
+  onFirstToken?: () => void;
   signal?: AbortSignal;
 }) {
+  let firstTokenFired = false;
   let resp: Response;
   try {
     resp = await fetch(CHAT_URL, {
