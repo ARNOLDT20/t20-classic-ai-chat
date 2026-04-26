@@ -93,30 +93,77 @@ RULES:
       { role: "user", content: message },
     ];
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        stream: false,
-        messages,
-      }),
-    });
+    // Try Lovable AI first, fallback to OpenAI on failure / sleep
+    let reply: string | null = null;
+    let usedFallback = false;
 
-    if (!response.ok) {
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI service error", status: response.status }), {
-        status: 502,
+    try {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          stream: false,
+          messages,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        reply = data.choices?.[0]?.message?.content || null;
+      } else if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else {
+        const t = await response.text();
+        console.error("Lovable AI error, will try OpenAI fallback:", response.status, t);
+      }
+    } catch (e) {
+      console.error("Lovable AI fetch threw, will try OpenAI fallback:", e);
+    }
+
+    // Fallback to OpenAI
+    if (!reply) {
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (OPENAI_API_KEY) {
+        try {
+          const oaResp = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages,
+              stream: false,
+            }),
+          });
+          if (oaResp.ok) {
+            const oaData = await oaResp.json();
+            reply = oaData.choices?.[0]?.message?.content || null;
+            usedFallback = true;
+            console.log("WhatsApp reply served via OpenAI fallback");
+          } else {
+            console.error("OpenAI fallback error:", oaResp.status, await oaResp.text());
+          }
+        } catch (e) {
+          console.error("OpenAI fallback fetch threw:", e);
+        }
+      }
+    }
+
+    if (!reply) {
+      return new Response(JSON.stringify({ error: "AI service is temporarily unavailable" }), {
+        status: 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "Sorry, I could not generate a response.";
 
     // Save assistant reply
     await supabase.from("whatsapp_messages").insert({
