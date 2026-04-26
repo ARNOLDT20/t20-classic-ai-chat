@@ -109,6 +109,7 @@ const Index = () => {
     const userMessage: Message = { id: Date.now().toString(), content, isUser: true };
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
+    setWaitingFirstToken(true);
 
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content }];
     const assistantId = (Date.now() + 1).toString();
@@ -117,6 +118,10 @@ const Index = () => {
 
     await streamChat({
       messages: chatHistoryRef.current,
+      onFirstToken: () => {
+        // Re-enable input as soon as the first token lands — feels instantaneous
+        setWaitingFirstToken(false);
+      },
       onDelta: (chunk) => {
         assistantContent += chunk;
         if (!started) {
@@ -141,6 +146,7 @@ const Index = () => {
             )
           );
           setIsTyping(true);
+          setWaitingFirstToken(true);
           try {
             const result = await generateImage(imagePrompt);
             setMessages((prev) =>
@@ -174,10 +180,12 @@ const Index = () => {
           ];
         }
         setIsTyping(false);
+        setWaitingFirstToken(false);
       },
       onError: (err) => {
         toast.error(err);
         setIsTyping(false);
+        setWaitingFirstToken(false);
       },
     });
   };
