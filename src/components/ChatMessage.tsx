@@ -1,7 +1,8 @@
-import { Sparkles, User, Download, Copy, Check } from "lucide-react";
+import { User, Download, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
+import { BrainLogo } from "./BrainLogo";
 import { useState, memo } from "react";
 
 interface ChatMessageProps {
