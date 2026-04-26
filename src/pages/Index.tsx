@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Menu, Plus, Sparkles } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ChatMessage } from "@/components/ChatMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { ChatInput } from "@/components/ChatInput";
 import { AdInterstitial } from "@/components/AdInterstitial";
+import { BrainLogo } from "@/components/BrainLogo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { streamChat, type ChatMsg } from "@/lib/streamChat";
 import { toast } from "sonner";
