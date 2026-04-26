@@ -6,41 +6,54 @@
 
 @layer base {
   :root {
-    --background: 220 25% 7%;
-    --foreground: 220 15% 90%;
+    /* Pro dark theme — deeper, more refined */
+    --background: 224 30% 5%;
+    --foreground: 220 14% 96%;
 
-    --card: 220 22% 11%;
-    --card-foreground: 220 15% 90%;
+    --card: 224 25% 8%;
+    --card-foreground: 220 14% 96%;
 
-    --popover: 220 25% 9%;
-    --popover-foreground: 220 15% 90%;
+    --popover: 224 28% 7%;
+    --popover-foreground: 220 14% 96%;
 
-    --primary: 190 95% 45%;
+    /* Brand: electric violet → cyan */
+    --primary: 252 95% 65%;
     --primary-foreground: 0 0% 100%;
+    --primary-glow: 195 95% 60%;
 
-    --secondary: 220 22% 16%;
-    --secondary-foreground: 220 15% 90%;
+    --secondary: 224 20% 13%;
+    --secondary-foreground: 220 14% 96%;
 
-    --muted: 220 20% 14%;
-    --muted-foreground: 220 12% 50%;
+    --muted: 224 18% 11%;
+    --muted-foreground: 220 10% 55%;
 
-    --accent: 155 72% 40%;
+    --accent: 195 95% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 80% 58%;
+    --destructive: 0 75% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 18% 18%;
-    --input: 220 22% 16%;
-    --ring: 190 95% 45%;
+    --border: 224 18% 15%;
+    --input: 224 20% 12%;
+    --ring: 252 95% 65%;
 
     --radius: 0.875rem;
 
-    --chat-user-bg: 190 95% 45%;
-    --chat-bot-bg: 220 22% 13%;
-    --sidebar-bg: 220 28% 5%;
-    --gradient-start: 220 28% 9%;
-    --gradient-end: 220 30% 4%;
+    --chat-user-bg: 252 95% 65%;
+    --chat-bot-bg: 224 22% 10%;
+    --sidebar-bg: 224 32% 4%;
+
+    /* Gradients */
+    --gradient-brand: linear-gradient(135deg, hsl(252 95% 65%), hsl(195 95% 60%));
+    --gradient-brand-soft: linear-gradient(135deg, hsl(252 95% 65% / 0.15), hsl(195 95% 60% / 0.10));
+    --gradient-bg: radial-gradient(ellipse at top, hsl(252 60% 12% / 0.5), transparent 60%),
+                   radial-gradient(ellipse at bottom right, hsl(195 60% 10% / 0.4), transparent 55%),
+                   linear-gradient(180deg, hsl(224 32% 5%), hsl(224 35% 3%));
+
+    /* Shadows */
+    --shadow-glow: 0 0 40px -8px hsl(252 95% 65% / 0.35);
+    --shadow-glow-sm: 0 0 20px -6px hsl(252 95% 65% / 0.25);
+    --shadow-elevated: 0 20px 60px -20px hsl(0 0% 0% / 0.6);
   }
 }
 
@@ -50,47 +63,125 @@
   }
 
   body {
-    @apply bg-gradient-to-br from-[hsl(var(--gradient-start))] to-[hsl(var(--gradient-end))] text-foreground antialiased;
+    background: var(--gradient-bg);
+    background-attachment: fixed;
+    @apply text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    text-rendering: optimizeLegibility;
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.3);
+    background: hsl(var(--primary) / 0.4);
     color: hsl(var(--foreground));
   }
 }
 
 @layer utilities {
   .gradient-text {
-    @apply bg-gradient-to-r from-primary via-[hsl(170,80%,50%)] to-accent bg-clip-text text-transparent;
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gradient-brand {
+    background: var(--gradient-brand);
+  }
+
+  .gradient-brand-soft {
+    background: var(--gradient-brand-soft);
   }
 
   .glass-effect {
-    @apply bg-card/40 backdrop-blur-xl border border-border/30;
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.6);
   }
 
-  .glow-sm {
-    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.15);
+  .glass-strong {
+    background: hsl(var(--card) / 0.85);
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    border: 1px solid hsl(var(--border) / 0.8);
   }
 
-  .glow-md {
-    box-shadow: 0 0 40px -10px hsl(var(--primary) / 0.2);
+  .glow-sm { box-shadow: var(--shadow-glow-sm); }
+  .glow-md { box-shadow: var(--shadow-glow); }
+  .shadow-elevated { box-shadow: var(--shadow-elevated); }
+
+  .ring-brand {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4),
+                0 0 0 4px hsl(var(--primary) / 0.12);
   }
 
-  .chat-scroll::-webkit-scrollbar {
-    @apply w-1.5;
-  }
-
-  .chat-scroll::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-
+  /* Scrollbars */
+  .chat-scroll::-webkit-scrollbar { @apply w-1.5; }
+  .chat-scroll::-webkit-scrollbar-track { @apply bg-transparent; }
   .chat-scroll::-webkit-scrollbar-thumb {
-    @apply bg-primary/30 rounded-full hover:bg-primary/50;
+    background: hsl(var(--primary) / 0.25);
+    border-radius: 9999px;
   }
-
+  .chat-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
   .chat-scroll {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--primary) / 0.3) transparent;
+    scrollbar-color: hsl(var(--primary) / 0.25) transparent;
+  }
+
+  /* Subtle grid backdrop */
+  .bg-grid {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.4) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+
+  /* Streaming caret */
+  .stream-caret::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 14px;
+    background: hsl(var(--primary));
+    margin-left: 2px;
+    border-radius: 1px;
+    animation: caret-blink 0.9s steps(2) infinite;
+    vertical-align: text-bottom;
+  }
+
+  @keyframes caret-blink {
+    50% { opacity: 0; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted-foreground) / 0.4) 0%,
+      hsl(var(--foreground) / 0.9) 50%,
+      hsl(var(--muted-foreground) / 0.4) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2.4s linear infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(0.8); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 1; }
+  }
+
+  .animate-pulse-dot {
+    animation: pulse-dot 1.2s ease-in-out infinite;
   }
 }
