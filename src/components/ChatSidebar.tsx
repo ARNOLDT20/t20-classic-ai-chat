@@ -1,5 +1,6 @@
-import { Sparkles, Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain } from "lucide-react";
+import { Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrainLogo } from "./BrainLogo";
 
 interface ChatSidebarProps {
   selectedModel: string;
@@ -28,8 +29,8 @@ export const ChatSidebar = ({ selectedModel, onModelSelect }: ChatSidebarProps) 
       <div className="p-5 border-b border-border/30">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-10 h-10 gradient-brand rounded-xl flex items-center justify-center shadow-md glow-sm">
-              <Sparkles className="w-5 h-5 text-white" strokeWidth={2.5} />
+            <div className="w-10 h-10 gradient-brand rounded-xl flex items-center justify-center shadow-md glow-sm p-1">
+              <BrainLogo size={28} animated />
             </div>
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-accent rounded-full ring-2 ring-sidebar-bg animate-pulse" />
           </div>

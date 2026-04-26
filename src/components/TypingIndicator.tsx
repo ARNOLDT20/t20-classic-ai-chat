@@ -1,11 +1,11 @@
-import { Sparkles } from "lucide-react";
+import { BrainLogo } from "./BrainLogo";
 
 export const TypingIndicator = () => {
   return (
     <div className="w-full flex justify-start animate-fade-in">
       <div className="flex items-start gap-3 max-w-[88%]">
-        <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md glow-sm">
-          <Sparkles className="w-4 h-4 text-white animate-pulse-dot" strokeWidth={2.5} />
+        <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md glow-sm p-1">
+          <BrainLogo size={22} animated />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5 px-1">

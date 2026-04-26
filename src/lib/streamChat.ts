@@ -7,14 +7,17 @@ export async function streamChat({
   onDelta,
   onDone,
   onError,
+  onFirstToken,
   signal,
 }: {
   messages: ChatMsg[];
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (err: string) => void;
+  onFirstToken?: () => void;
   signal?: AbortSignal;
 }) {
+  let firstTokenFired = false;
   let resp: Response;
   try {
     resp = await fetch(CHAT_URL, {
@@ -47,7 +50,7 @@ export async function streamChat({
   const decoder = new TextDecoder();
   let buffer = "";
 
-  // Batch deltas via rAF for smoother + faster perceived rendering
+  // Flush deltas on microtask for the lowest-latency feel
   let pending = "";
   let scheduled = false;
   const flush = () => {
@@ -58,10 +61,14 @@ export async function streamChat({
     scheduled = false;
   };
   const schedule = (chunk: string) => {
+    if (!firstTokenFired) {
+      firstTokenFired = true;
+      onFirstToken?.();
+    }
     pending += chunk;
     if (!scheduled) {
       scheduled = true;
-      requestAnimationFrame(flush);
+      queueMicrotask(flush);
     }
   };
 

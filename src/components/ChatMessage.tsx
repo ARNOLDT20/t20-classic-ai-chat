@@ -1,7 +1,8 @@
-import { Sparkles, User, Download, Copy, Check } from "lucide-react";
+import { User, Download, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
+import { BrainLogo } from "./BrainLogo";
 import { useState, memo } from "react";
 
 interface ChatMessageProps {
@@ -60,13 +61,13 @@ const ChatMessageComponent = ({
             "w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md",
             isUser
               ? "bg-secondary border border-border/40"
-              : "gradient-brand glow-sm"
+              : "gradient-brand glow-sm p-1"
           )}
         >
           {isUser ? (
             <User className="w-4 h-4 text-foreground/70" />
           ) : (
-            <Sparkles className="w-4 h-4 text-white" strokeWidth={2.5} />
+            <BrainLogo size={22} animated={isStreaming} />
           )}
         </div>
 

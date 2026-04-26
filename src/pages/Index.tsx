@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Menu, Plus, Sparkles } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ChatMessage } from "@/components/ChatMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { ChatInput } from "@/components/ChatInput";
 import { AdInterstitial } from "@/components/AdInterstitial";
+import { BrainLogo } from "@/components/BrainLogo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { streamChat, type ChatMsg } from "@/lib/streamChat";
 import { toast } from "sonner";
@@ -36,6 +37,7 @@ const WELCOME: Message = {
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [isTyping, setIsTyping] = useState(false);
+  const [waitingFirstToken, setWaitingFirstToken] = useState(false);
   const [selectedModel, setSelectedModel] = useState("t20-pro");
   const [modelName, setModelName] = useState("T20-CLASSIC Pro");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -107,6 +109,7 @@ const Index = () => {
     const userMessage: Message = { id: Date.now().toString(), content, isUser: true };
     setMessages((prev) => [...prev, userMessage]);
     setIsTyping(true);
+    setWaitingFirstToken(true);
 
     chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content }];
     const assistantId = (Date.now() + 1).toString();
@@ -115,6 +118,10 @@ const Index = () => {
 
     await streamChat({
       messages: chatHistoryRef.current,
+      onFirstToken: () => {
+        // Re-enable input as soon as the first token lands — feels instantaneous
+        setWaitingFirstToken(false);
+      },
       onDelta: (chunk) => {
         assistantContent += chunk;
         if (!started) {
@@ -139,6 +146,7 @@ const Index = () => {
             )
           );
           setIsTyping(true);
+          setWaitingFirstToken(true);
           try {
             const result = await generateImage(imagePrompt);
             setMessages((prev) =>
@@ -172,10 +180,12 @@ const Index = () => {
           ];
         }
         setIsTyping(false);
+        setWaitingFirstToken(false);
       },
       onError: (err) => {
         toast.error(err);
         setIsTyping(false);
+        setWaitingFirstToken(false);
       },
     });
   };
@@ -224,15 +234,13 @@ const Index = () => {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 flex items-center justify-center gap-2.5">
-            <div className="w-7 h-7 gradient-brand rounded-lg flex items-center justify-center shadow-md glow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
-            </div>
+            <BrainLogo size={30} />
             <div className="text-center">
               <h1 className="text-sm font-extrabold gradient-text leading-none">T20-CLASSIC AI</h1>
               <div className="flex items-center justify-center gap-1.5 mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                 <span className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-semibold">
-                  {isTyping ? "Thinking" : "Ready"} · {modelName}
+                  {isTyping ? "Thinking" : waitingFirstToken ? "Streaming" : "Ready"} · {modelName}
                 </span>
               </div>
             </div>
@@ -270,7 +278,7 @@ const Index = () => {
 
         {/* Input */}
         <div className="relative z-10">
-          <ChatInput onSend={handleSendMessage} disabled={isTyping} />
+          <ChatInput onSend={handleSendMessage} disabled={waitingFirstToken} />
         </div>
       </div>
       <AdInterstitial open={adOpen} onClose={handleAdClose} message={adMessage} />
