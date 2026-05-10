@@ -27,7 +27,8 @@ const capabilities = [
   { label: "Reasoning", icon: Brain },
 ];
 
-export const ChatSidebar = ({ selectedModel, onModelSelect }: ChatSidebarProps) => {
+export const ChatSidebar = ({ selectedModel, onModelSelect, memoryMode, onMemoryModeChange }: ChatSidebarProps) => {
+  const isFull = memoryMode === "full";
   return (
     <div className="w-64 h-full bg-sidebar-bg border-r border-border/40 flex flex-col overflow-hidden">
       {/* Brand header */}
