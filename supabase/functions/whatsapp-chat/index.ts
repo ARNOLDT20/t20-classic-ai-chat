@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { message, conversation_id } = await req.json();
+    const { message, conversation_id, memory_mode } = await req.json();
 
     if (!message || typeof message !== "string") {
       return new Response(JSON.stringify({ error: "Field 'message' is required" }), {
@@ -18,6 +18,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const memoryMode: "full" | "minimal" = memory_mode === "minimal" ? "minimal" : "full";
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -51,6 +52,10 @@ serve(async (req) => {
       role: "user",
       content: message,
     });
+
+    // Apply memory mode: full = all history, minimal = last 4 messages only
+    const fullHistory = (history || []).map((m: any) => ({ role: m.role, content: m.content }));
+    const trimmedHistory = memoryMode === "minimal" ? fullHistory.slice(-4) : fullHistory;
 
     // Build messages array with history
     const messages = [
@@ -89,7 +94,7 @@ RULES:
 - Keep responses conversational, not essay-like.
 - Be helpful but also entertaining.`,
       },
-      ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
+      ...trimmedHistory,
       { role: "user", content: message },
     ];
 

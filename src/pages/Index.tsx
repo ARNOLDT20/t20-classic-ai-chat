@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu, Plus } from "lucide-react";
-import { ChatSidebar } from "@/components/ChatSidebar";
+import { ChatSidebar, type MemoryMode } from "@/components/ChatSidebar";
 import { ChatMessage } from "@/components/ChatMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { ChatInput } from "@/components/ChatInput";
@@ -41,6 +41,12 @@ const Index = () => {
   const [selectedModel, setSelectedModel] = useState("t20-pro");
   const [modelName, setModelName] = useState("T20-CLASSIC Pro");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memoryMode, setMemoryMode] = useState<MemoryMode>(
+    () => (typeof window !== "undefined" && (localStorage.getItem("t20-memory-mode") as MemoryMode)) || "full"
+  );
+  useEffect(() => {
+    localStorage.setItem("t20-memory-mode", memoryMode);
+  }, [memoryMode]);
   const [adOpen, setAdOpen] = useState(false);
   const [adMessage, setAdMessage] = useState("");
   const adCallbackRef = useRef<(() => void) | null>(null);
@@ -116,8 +122,13 @@ const Index = () => {
     let assistantContent = "";
     let started = false;
 
+    const historyToSend =
+      memoryMode === "minimal"
+        ? chatHistoryRef.current.slice(-4)
+        : chatHistoryRef.current;
+
     await streamChat({
-      messages: chatHistoryRef.current,
+      messages: historyToSend,
       onFirstToken: () => {
         // Re-enable input as soon as the first token lands — feels instantaneous
         setWaitingFirstToken(false);
@@ -216,7 +227,7 @@ const Index = () => {
         )}
       >
         <div className="w-64 h-full">
-          <ChatSidebar selectedModel={selectedModel} onModelSelect={handleModelSelect} />
+          <ChatSidebar selectedModel={selectedModel} onModelSelect={handleModelSelect} memoryMode={memoryMode} onMemoryModeChange={setMemoryMode} />
         </div>
       </div>
 

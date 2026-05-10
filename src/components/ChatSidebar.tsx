@@ -1,10 +1,15 @@
-import { Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain } from "lucide-react";
+import { Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain, Database, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrainLogo } from "./BrainLogo";
+import { Switch } from "./ui/switch";
+
+export type MemoryMode = "full" | "minimal";
 
 interface ChatSidebarProps {
   selectedModel: string;
   onModelSelect: (model: string) => void;
+  memoryMode: MemoryMode;
+  onMemoryModeChange: (mode: MemoryMode) => void;
 }
 
 const models = [
@@ -22,7 +27,8 @@ const capabilities = [
   { label: "Reasoning", icon: Brain },
 ];
 
-export const ChatSidebar = ({ selectedModel, onModelSelect }: ChatSidebarProps) => {
+export const ChatSidebar = ({ selectedModel, onModelSelect, memoryMode, onMemoryModeChange }: ChatSidebarProps) => {
+  const isFull = memoryMode === "full";
   return (
     <div className="w-64 h-full bg-sidebar-bg border-r border-border/40 flex flex-col overflow-hidden">
       {/* Brand header */}
@@ -116,6 +122,41 @@ export const ChatSidebar = ({ selectedModel, onModelSelect }: ChatSidebarProps) 
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Memory mode */}
+        <div>
+          <h3 className="text-[10px] font-bold text-muted-foreground/80 mb-2 uppercase tracking-[0.2em] px-1">
+            Memory
+          </h3>
+          <div className="rounded-xl bg-secondary/40 border border-border/30 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={cn(
+                  "w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all",
+                  isFull ? "gradient-brand glow-sm" : "bg-secondary"
+                )}>
+                  {isFull ? (
+                    <Database className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
+                  ) : (
+                    <Minimize2 className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={2.2} />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[12px] font-semibold leading-tight">
+                    {isFull ? "Full Memory" : "Minimal Memory"}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground/70 mt-0.5">
+                    {isFull ? "Remembers everything" : "Last 4 messages only"}
+                  </div>
+                </div>
+              </div>
+              <Switch
+                checked={isFull}
+                onCheckedChange={(c) => onMemoryModeChange(c ? "full" : "minimal")}
+              />
+            </div>
           </div>
         </div>
 
