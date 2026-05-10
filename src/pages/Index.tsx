@@ -222,7 +222,7 @@ const Index = () => {
         )}
       >
         <div className="w-64 h-full">
-          <ChatSidebar selectedModel={selectedModel} onModelSelect={handleModelSelect} />
+          <ChatSidebar selectedModel={selectedModel} onModelSelect={handleModelSelect} memoryMode={memoryMode} onMemoryModeChange={setMemoryMode} />
         </div>
       </div>
 
