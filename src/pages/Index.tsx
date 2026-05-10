@@ -41,6 +41,12 @@ const Index = () => {
   const [selectedModel, setSelectedModel] = useState("t20-pro");
   const [modelName, setModelName] = useState("T20-CLASSIC Pro");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [memoryMode, setMemoryMode] = useState<MemoryMode>(
+    () => (typeof window !== "undefined" && (localStorage.getItem("t20-memory-mode") as MemoryMode)) || "full"
+  );
+  useEffect(() => {
+    localStorage.setItem("t20-memory-mode", memoryMode);
+  }, [memoryMode]);
   const [adOpen, setAdOpen] = useState(false);
   const [adMessage, setAdMessage] = useState("");
   const adCallbackRef = useRef<(() => void) | null>(null);
