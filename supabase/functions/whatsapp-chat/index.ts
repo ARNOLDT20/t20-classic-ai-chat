@@ -29,22 +29,22 @@ serve(async (req) => {
 
     const convId = conversation_id || crypto.randomUUID();
 
-    // Delete messages older than 72 hours for this conversation
-    const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    // Delete messages older than 32 hours for this conversation
+    const cutoff = new Date(Date.now() - 32 * 60 * 60 * 1000).toISOString();
     await supabase
       .from("whatsapp_messages")
       .delete()
       .eq("conversation_id", convId)
       .lt("created_at", cutoff);
 
-    // Fetch recent conversation history (last 72h, max 20 messages)
+    // Fetch recent conversation history (last 32h, up to 100 messages for long memory)
     const { data: history } = await supabase
       .from("whatsapp_messages")
       .select("role, content")
       .eq("conversation_id", convId)
       .gte("created_at", cutoff)
       .order("created_at", { ascending: true })
-      .limit(20);
+      .limit(100);
 
     // Save user message
     await supabase.from("whatsapp_messages").insert({
