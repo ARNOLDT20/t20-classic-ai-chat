@@ -122,8 +122,13 @@ const Index = () => {
     let assistantContent = "";
     let started = false;
 
+    const historyToSend =
+      memoryMode === "minimal"
+        ? chatHistoryRef.current.slice(-4)
+        : chatHistoryRef.current;
+
     await streamChat({
-      messages: chatHistoryRef.current,
+      messages: historyToSend,
       onFirstToken: () => {
         // Re-enable input as soon as the first token lands — feels instantaneous
         setWaitingFirstToken(false);
