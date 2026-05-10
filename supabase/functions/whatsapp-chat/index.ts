@@ -94,7 +94,7 @@ RULES:
 - Keep responses conversational, not essay-like.
 - Be helpful but also entertaining.`,
       },
-      ...(history || []).map((m: any) => ({ role: m.role, content: m.content })),
+      ...trimmedHistory,
       { role: "user", content: message },
     ];
 
