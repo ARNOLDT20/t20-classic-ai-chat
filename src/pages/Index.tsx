@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu, Plus } from "lucide-react";
-import { ChatSidebar } from "@/components/ChatSidebar";
+import { ChatSidebar, type MemoryMode } from "@/components/ChatSidebar";
 import { ChatMessage } from "@/components/ChatMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { ChatInput } from "@/components/ChatInput";
