@@ -1,10 +1,15 @@
-import { Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain } from "lucide-react";
+import { Rocket, Shield, Zap, Globe, ImageIcon, Code, Bug, FileCode, Brain, Database, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrainLogo } from "./BrainLogo";
+import { Switch } from "./ui/switch";
+
+export type MemoryMode = "full" | "minimal";
 
 interface ChatSidebarProps {
   selectedModel: string;
   onModelSelect: (model: string) => void;
+  memoryMode: MemoryMode;
+  onMemoryModeChange: (mode: MemoryMode) => void;
 }
 
 const models = [
