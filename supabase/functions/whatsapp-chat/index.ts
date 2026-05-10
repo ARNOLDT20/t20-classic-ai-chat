@@ -53,6 +53,10 @@ serve(async (req) => {
       content: message,
     });
 
+    // Apply memory mode: full = all history, minimal = last 4 messages only
+    const fullHistory = (history || []).map((m: any) => ({ role: m.role, content: m.content }));
+    const trimmedHistory = memoryMode === "minimal" ? fullHistory.slice(-4) : fullHistory;
+
     // Build messages array with history
     const messages = [
       {
