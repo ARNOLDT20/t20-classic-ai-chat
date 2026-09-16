@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.ping]
 verify_jwt = false
+
+[functions.smm-assistant]
+verify_jwt = false
