@@ -68,35 +68,6 @@ ALWAYS match the length, depth, and tone the user actually wants. Detect this fr
 ## Image Generation
 If a user asks you to generate, create, draw, or make an image, respond ONLY with the exact text: [IMAGE_REQUEST] followed by a short English description. Do NOT include any other text when handling image requests.`;
 
-// Treat these as "Lovable AI is unavailable / sleeping" => fallback to OpenAI
-function shouldFallback(status: number) {
-  return status === 0 || status === 408 || status === 502 || status === 503 || status === 504 || status >= 500;
-}
-
-async function callLovable(messages: any[]) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return { ok: false, status: 500, response: null as Response | null };
-  try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-        stream: true,
-        temperature: 0.5,
-      }),
-    });
-    return { ok: response.ok, status: response.status, response };
-  } catch (e) {
-    console.error("Lovable AI fetch failed:", e);
-    return { ok: false, status: 0, response: null as Response | null };
-  }
-}
-
 async function callOpenAI(messages: any[]) {
   const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
   if (!OPENAI_API_KEY) return null;
@@ -126,48 +97,21 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
 
-    // 1) Try Lovable AI first
-    const primary = await callLovable(messages);
+    const response = await callOpenAI(messages);
 
-    if (primary.ok && primary.response) {
-      return new Response(primary.response.body, {
+    if (response?.ok) {
+      return new Response(response.body, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 
-    // 2) Pass through hard client errors (rate limit / payment) without fallback
-    if (primary.response && primary.status === 429) {
+    if (response?.status === 429) {
       return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (primary.response && primary.status === 402) {
-      // payment / credits issue → fallback to OpenAI if available
-      console.warn("Lovable AI 402 — falling back to OpenAI");
-    }
 
-    // 3) Fallback to OpenAI on network failure / 5xx / 402
-    if (primary.status === 0 || primary.status === 402 || shouldFallback(primary.status)) {
-      const fallback = await callOpenAI(messages);
-      if (fallback && fallback.ok) {
-        console.log("Serving response via OpenAI fallback");
-        return new Response(fallback.body, {
-          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-        });
-      }
-      if (fallback) {
-        const t = await fallback.text();
-        console.error("OpenAI fallback error:", fallback.status, t);
-      } else {
-        console.error("OpenAI fallback unavailable (no API key or network error)");
-      }
-    }
-
-    // 4) Both failed
-    if (primary.response) {
-      const t = await primary.response.text();
-      console.error("AI gateway error (no fallback succeeded):", primary.status, t);
-    }
+    if (response) console.error("OpenAI error:", response.status, await response.text());
     return new Response(JSON.stringify({ error: "AI service is temporarily unavailable. Please try again." }), {
       status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

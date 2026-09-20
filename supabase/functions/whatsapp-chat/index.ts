@@ -20,9 +20,6 @@ serve(async (req) => {
     }
     const memoryMode: "full" | "minimal" = memory_mode === "minimal" ? "minimal" : "full";
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -98,69 +95,16 @@ RULES:
       { role: "user", content: message },
     ];
 
-    // Try Lovable AI first, fallback to OpenAI on failure / sleep
     let reply: string | null = null;
-    let usedFallback = false;
-
-    try {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (OPENAI_API_KEY) {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          stream: false,
-          messages,
-        }),
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages, stream: false }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        reply = data.choices?.[0]?.message?.content || null;
-      } else if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } else {
-        const t = await response.text();
-        console.error("Lovable AI error, will try OpenAI fallback:", response.status, t);
-      }
-    } catch (e) {
-      console.error("Lovable AI fetch threw, will try OpenAI fallback:", e);
-    }
-
-    // Fallback to OpenAI
-    if (!reply) {
-      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-      if (OPENAI_API_KEY) {
-        try {
-          const oaResp = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages,
-              stream: false,
-            }),
-          });
-          if (oaResp.ok) {
-            const oaData = await oaResp.json();
-            reply = oaData.choices?.[0]?.message?.content || null;
-            usedFallback = true;
-            console.log("WhatsApp reply served via OpenAI fallback");
-          } else {
-            console.error("OpenAI fallback error:", oaResp.status, await oaResp.text());
-          }
-        } catch (e) {
-          console.error("OpenAI fallback fetch threw:", e);
-        }
-      }
+      if (response.ok) reply = (await response.json()).choices?.[0]?.message?.content || null;
+      else console.error("OpenAI error:", response.status, await response.text());
     }
 
     if (!reply) {

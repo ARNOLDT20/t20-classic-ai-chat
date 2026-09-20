@@ -22,32 +22,6 @@ RULES:
 - Do not promise refunds or delivery times on behalf of the panel.
 - Stay on topic: SMM panel support and general helpful assistance.`;
 
-async function callLovable(messages: any[]) {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
-  try {
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        stream: false,
-        messages,
-      }),
-    });
-    if (r.ok) {
-      const d = await r.json();
-      return { reply: d.choices?.[0]?.message?.content || null, status: 200 };
-    }
-    if (r.status === 429) return { reply: null, status: 429 };
-    console.error("Lovable AI error:", r.status, await r.text());
-    return null;
-  } catch (e) {
-    console.error("Lovable AI threw:", e);
-    return null;
-  }
-}
-
 async function callOpenAI(messages: any[]) {
   const key = Deno.env.get("OPENAI_API_KEY");
   if (!key) return null;
@@ -130,11 +104,7 @@ serve(async (req) => {
 
     const messages = [{ role: "system", content: system }, ...context, { role: "user", content: message }];
 
-    const primary = await callLovable(messages);
-    if (primary?.status === 429) return json({ error: "Rate limit exceeded. Try again shortly." }, 429);
-
-    let reply = primary?.reply || null;
-    if (!reply) reply = await callOpenAI(messages);
+    const reply = await callOpenAI(messages);
 
     if (!reply) return json({ error: "Assistant is temporarily unavailable" }, 503);
 
