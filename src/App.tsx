@@ -6,14 +6,15 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/supabaseConfig";
 
 const queryClient = new QueryClient();
 
 // Keep the backend warm while the app is open (ping every 3 minutes)
 function useKeepAlive() {
   useEffect(() => {
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ping`;
-    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const url = `${SUPABASE_URL}/functions/v1/ping`;
+    const key = SUPABASE_PUBLISHABLE_KEY;
     const ping = () =>
       fetch(url, { headers: { apikey: key, Authorization: `Bearer ${key}` } }).catch(() => {});
     ping();

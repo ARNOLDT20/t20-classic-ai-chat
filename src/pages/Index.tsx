@@ -9,6 +9,7 @@ import { BrainLogo } from "@/components/BrainLogo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { streamChat, type ChatMsg } from "@/lib/streamChat";
 import { toast } from "sonner";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/supabaseConfig";
 
 interface Message {
   id: string;
@@ -19,8 +20,8 @@ interface Message {
   images?: string[];
 }
 
-const BASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const AUTH_HEADER = { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` };
+const BASE_URL = SUPABASE_URL;
+const AUTH_HEADER = { Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` };
 const IMAGE_GEN_URL = `${BASE_URL}/functions/v1/generate-image`;
 
 function cn(...classes: (string | boolean | undefined)[]) {

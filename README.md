@@ -19,6 +19,7 @@ The local `.env` file must define:
 ```text
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+# NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are also supported.
 ```
 
 These are browser-facing Supabase settings. Never put a Supabase service-role key in this app.
@@ -37,7 +38,7 @@ The frontend calls the edge functions in `supabase/functions`. Install the Supab
 
 ```bash
 supabase login
-supabase link --project-ref xijuhyfftapgtseumgmr
+supabase link --project-ref mqudqfsvnvlcptsgdceo
 supabase db push
 ```
 
@@ -67,7 +68,7 @@ supabase functions deploy whatsapp-chat
 Test the backend before opening the frontend:
 
 ```bash
-curl -i https://xijuhyfftapgtseumgmr.supabase.co/functions/v1/ping -H "apikey: YOUR_PUBLISHABLE_KEY"
+curl -i https://mqudqfsvnvlcptsgdceo.supabase.co/functions/v1/ping -H "apikey: YOUR_PUBLISHABLE_KEY"
 ```
 
 The response should be successful. Then run `bun run dev`, open the local Vite URL, and test chat, image generation, music generation, and song search separately.
@@ -79,7 +80,7 @@ The response should be successful. Then run `bun run dev`, open the local Vite U
 This repository includes `render.yaml`. In Render, choose **New > Blueprint**, connect this repository, and deploy. Render will build and host the frontend as a static site. Enter these Blueprint environment variables when prompted:
 
 ```text
-VITE_SUPABASE_URL=https://xijuhyfftapgtseumgmr.supabase.co
+VITE_SUPABASE_URL=https://mqudqfsvnvlcptsgdceo.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
 

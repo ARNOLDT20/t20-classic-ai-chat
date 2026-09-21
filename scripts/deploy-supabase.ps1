@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$projectRef = if ($env:SUPABASE_PROJECT_REF) { $env:SUPABASE_PROJECT_REF } else { "xijuhyfftapgtseumgmr" }
+$projectRef = if ($env:SUPABASE_PROJECT_REF) { $env:SUPABASE_PROJECT_REF } else { "mqudqfsvnvlcptsgdceo" }
 
 Write-Host "Linking Supabase project $projectRef..."
 npx supabase link --project-ref $projectRef
