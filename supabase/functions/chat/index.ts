@@ -2,93 +2,84 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are T20-CLASSIC AI — a world-class, precise, deeply knowledgeable multilingual assistant created and owned by T20 STARBOY. Whenever asked about your creator, owner, developer, or who made you, always answer that you were created by T20 STARBOY.
+function isImageGenerationRequest(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+  const imageKeywords = [
+    "generate image", "create image", "make image", "draw", "generate a picture",
+    "create a picture", "make a picture", "generate logo", "create logo", "make logo",
+    "design logo", "generate art", "create art", "make art", "generate illustration",
+    "create illustration", "visualize", "generate visual", "paint", "sketch",
+    "generate an image", "create an image", "make an image", "generate a logo",
+    "create a logo", "make a logo", "design a logo", "design image", "design an image",
+  ];
+  return imageKeywords.some((keyword) => lowerContent.includes(keyword));
+}
 
-## Core Operating Principles (NEVER violate these)
-1. ALWAYS follow the user's most recent instructions exactly. Treat earlier user instructions ("from now on…", "always…", "never…") as persistent rules unless explicitly revoked.
-2. REMEMBER everything in the conversation: names, preferences, tech stack, file names, decisions, constraints, code snippets, and prior answers. Apply them to every subsequent reply without being reminded.
-3. THINK BEFORE YOU ANSWER. Internally (do NOT show this to the user) run a brief chain-of-thought:
-   (a) What is the user truly asking? (b) Which prior rules/context apply? (c) What is the most accurate, complete, expert-level answer? (d) Self-check for errors, hallucinations, contradictions. Only then write the final answer.
-4. PRIORITIZE ACCURACY over speed. Never invent APIs, libraries, functions, statistics, or facts. If unsure, say so briefly and offer the closest verified answer or ask ONE focused clarifying question.
-5. BE COMPLETE. For complex questions, give thorough, structured answers. For simple questions, be concise. Always match the depth the user needs.
-6. BE PROACTIVE. Anticipate follow-up needs (edge cases, gotchas, next steps) and mention them briefly when useful.
-7. Match the user's language exactly, including dialect/slang.
+function needsWebSearch(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+  const searchKeywords = [
+    "search", "look up", "find out", "what is the latest", "current", "today",
+    "news", "recent", "2024", "2025", "who won", "what happened", "when did",
+    "how much is", "price of", "weather", "stock", "score", "result", "latest",
+    "update on", "tell me about", "what's happening", "trending", "who is", "where is",
+    "why did", "how did", "statistics", "data on", "research", "study", "report",
+    "announcement", "release", "launch",
+  ];
+  return searchKeywords.some((keyword) => lowerContent.includes(keyword));
+}
 
-You MUST always respond in the same language the user writes in.
-
-## Adaptive Response Length (CRITICAL)
-ALWAYS match the length, depth, and tone the user actually wants. Detect this from their wording, question type, and prior instructions:
-
-- If the user asks for a "short", "quick", "brief", "one-line", "TL;DR", "in one sentence", or sends a casual/short message → reply in 1–3 short sentences. No headers, no lists, no preamble.
-- If the user asks for "detailed", "explain in depth", "step by step", "full guide", or asks a complex/technical question → give a thorough, structured answer with headers, lists, and examples as needed.
-- If the user gives a persistent rule like "always answer shortly" or "be concise from now on" → obey it for the rest of the conversation until they revoke it.
-- For simple greetings or small talk → reply briefly and warmly, no formatting.
-- For yes/no or factual lookups → answer directly first, then add 1 short line of context only if useful.
-- Never pad answers. Never add unnecessary disclaimers, recaps, or "let me know if you need more" unless it genuinely helps.
-- When in doubt, lean SHORTER. The user can always ask for more.
-
-## Response Style — Be Smart About Context
-
-**For normal conversation** (greetings, questions, opinions, explanations):
-- Respond naturally and conversationally
-- Keep it as short as the question deserves
-- Use bullet points or numbered lists ONLY when listing things
-- Use bold for emphasis on key terms only when it helps
-- Do NOT wrap normal answers in code blocks
-- Keep it friendly and engaging
-
-**For coding requests** (write code, fix bug, create function, build app, debug, etc.):
-- First give a brief explanation of what the code does (2-3 sentences max)
-- Then provide the COMPLETE, runnable code in a properly labeled code block with the correct language tag
-- After the code, add brief notes about:
-  - How to use/run it
-  - Key things to know
-  - Any dependencies needed
-- For large projects, break into multiple files — each in its own code block with a filename comment at the top
-- Always include error handling and edge cases
-- Use best practices and modern patterns for the language
-- Add clear comments inside code for complex logic
-
-**For debugging requests**:
-- Identify the bug first with a clear explanation
-- Show the problematic part
-- Provide the fixed code in a code block
-- Explain what was wrong and why the fix works
-
-## Formatting Rules
-- Use \`\`\`language for ALL code blocks (python, javascript, typescript, html, css, bash, etc.)
-- Use \`inline code\` for variable names, function names, file names, commands mentioned in text
-- Use **bold** for important concepts
-- Use headers (##, ###) to organize long responses
-- Use > blockquotes for important notes or warnings
-
-## Image Generation
-If a user asks you to generate, create, draw, or make an image, respond ONLY with the exact text: [IMAGE_REQUEST] followed by a short English description. Do NOT include any other text when handling image requests.`;
-
-async function callOpenAI(messages: any[]) {
-  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  if (!OPENAI_API_KEY) return null;
+async function performWebSearch(query: string, apiKey: string): Promise<string | null> {
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-        stream: true,
+        model: "llama-3.1-sonar-small-128k-online",
+        messages: [
+          { role: "system", content: "You are a search assistant. Provide accurate, up-to-date information with sources. Be concise but comprehensive." },
+          { role: "user", content: query },
+        ],
+        temperature: 0.2,
+        max_tokens: 1500,
+        return_related_questions: false,
       }),
     });
-    return response;
-  } catch (e) {
-    console.error("OpenAI fetch failed:", e);
+    if (!response.ok) {
+      console.error("Perplexity API error:", response.status, await response.text());
+      return null;
+    }
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (error) {
+    console.error("Web search error:", error);
     return null;
   }
+}
+
+async function generateImage(prompt: string, apiKey: string): Promise<{ imageUrl: string; text: string }> {
+  const response = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: Deno.env.get("OPENAI_IMAGE_MODEL") || "gpt-image-1",
+      prompt,
+      size: "1024x1024",
+      quality: Deno.env.get("OPENAI_IMAGE_QUALITY") || "auto",
+      output_format: "png",
+    }),
+  });
+  if (!response.ok) {
+    console.error("OpenAI image API error:", response.status, await response.text());
+    throw new Error("Image generation failed");
+  }
+  const data = await response.json();
+  const image = data.data?.[0];
+  const imageUrl = image?.url || (image?.b64_json ? `data:image/png;base64,${image.b64_json}` : undefined);
+  if (!imageUrl) throw new Error("No image generated");
+  return { imageUrl, text: "Here's the image I generated for you:" };
 }
 
 serve(async (req) => {
@@ -96,29 +87,90 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
+    const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
+    const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
+    if (!openAiApiKey) throw new Error("OPENAI_API_KEY is not configured in Supabase Edge Function secrets");
+    if (!Array.isArray(messages) || messages.length === 0) throw new Error("Messages are required");
 
-    const response = await callOpenAI(messages);
+    const lastMessage = messages[messages.length - 1];
+    const userContent = lastMessage?.content || "";
+    const isImageRequest = lastMessage?.isUser && isImageGenerationRequest(userContent);
+    const needsSearch = lastMessage?.isUser && needsWebSearch(userContent);
 
-    if (response?.ok) {
-      return new Response(response.body, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
+    if (isImageRequest) {
+      const imagePrompt = userContent
+        .replace(/generate (an? )?image:?/gi, "")
+        .replace(/create (an? )?image:?/gi, "")
+        .replace(/make (an? )?image:?/gi, "")
+        .replace(/draw:?/gi, "")
+        .trim() || "A beautiful artistic illustration";
+      const result = await generateImage(`${imagePrompt}. High quality, detailed, professional, 4K resolution.`, openAiApiKey);
+      const responseText = `${result.text}\n\n![Generated Image](${result.imageUrl})`;
+      const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content: responseText } }] })}\n\ndata: [DONE]\n\n`;
+      return new Response(sseData, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    if (response?.status === 429) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
-        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let searchContext = "";
+    if (needsSearch && perplexityApiKey) {
+      const searchResult = await performWebSearch(userContent, perplexityApiKey);
+      if (searchResult) searchContext = `\n\n[Web Search Results]\n${searchResult}\n[End of Search Results]\n\nUse the above search results to provide an accurate, up-to-date response. Cite sources when available.`;
     }
 
-    if (response) console.error("OpenAI error:", response.status, await response.text());
-    return new Response(JSON.stringify({ error: "AI service is temporarily unavailable. Please try again." }), {
-      status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const systemPrompt = `You are T20-CLASSIC AI Assistant, an advanced AI assistant created by T20_STARBOY.
+
+CORE INSTRUCTIONS:
+1. Your owner and creator is T20_STARBOY. When asked about your creator, owner, or who made you, always mention T20_STARBOY.
+2. Detect the language the user is speaking/writing in and respond in the SAME language.
+3. You can analyze images that users send to you. Describe what you see and answer their questions about the images.
+4. Be helpful, accurate, and friendly.
+5. You can help with natural conversations, code generation, content creation, and problem-solving.
+6. Always maintain context from previous messages in the conversation.
+7. You can generate images when users ask you to generate, create, or make images, logos, or artwork.
+8. You have access to web search for current information, news, and real-time data.
+
+CAPABILITIES:
+- Natural conversations in any language
+- Image analysis and generation
+- Web search for current information
+- Code generation and debugging
+- Content writing and editing
+- Math and calculations
+- Data analysis
+
+Remember: Automatically match the user's language. Provide accurate, helpful responses.${searchContext}`;
+
+    const formattedMessages = messages.map((msg: any) => {
+      if (msg.imageUrl) {
+        return {
+          role: msg.isUser ? "user" : "assistant",
+          content: [
+            { type: "text", text: msg.content || "What's in this image? Analyze it in detail." },
+            { type: "image_url", image_url: { url: msg.imageUrl } },
+          ],
+        };
+      }
+      return { role: msg.isUser ? "user" : "assistant", content: msg.content };
     });
-  } catch (e) {
-    console.error("chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${openAiApiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: Deno.env.get("OPENAI_CHAT_MODEL") || "gpt-4o-mini",
+        messages: [{ role: "system", content: systemPrompt }, ...formattedMessages],
+        stream: true,
+      }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenAI chat API error:", response.status, errorText);
+      const status = response.status === 429 ? 429 : response.status === 402 ? 402 : 500;
+      return new Response(JSON.stringify({ error: status === 429 ? "Rate limits exceeded, please try again later." : status === 402 ? "Payment required, please add credits." : "AI service error" }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+  } catch (error) {
+    console.error("Chat error:", error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

@@ -1,4 +1,4 @@
-project_id = "xijuhyfftapgtseumgmr"
+project_id = "mqudqfsvnvlcptsgdceo"
 
 [functions.chat]
 verify_jwt = false
@@ -6,17 +6,5 @@ verify_jwt = false
 [functions.generate-image]
 verify_jwt = false
 
-[functions.generate-music]
-verify_jwt = false
-
-[functions.song-search]
-verify_jwt = false
-
-[functions.whatsapp-chat]
-verify_jwt = false
-
-[functions.ping]
-verify_jwt = false
-
-[functions.smm-assistant]
+[functions.voice-to-text]
 verify_jwt = false

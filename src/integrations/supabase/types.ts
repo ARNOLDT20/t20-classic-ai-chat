@@ -14,27 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      whatsapp_messages: {
+      conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
         Row: {
           content: string
           conversation_id: string
-          created_at: string
+          created_at: string | null
           id: string
-          role: string
+          image_url: string | null
+          is_user: boolean
+          user_id: string
         }
         Insert: {
           content: string
           conversation_id: string
-          created_at?: string
+          created_at?: string | null
           id?: string
-          role: string
+          image_url?: string | null
+          is_user: boolean
+          user_id: string
         }
         Update: {
           content?: string
           conversation_id?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
-          role?: string
+          image_url?: string | null
+          is_user?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

@@ -1,298 +1,213 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Menu, Plus } from "lucide-react";
-import { ChatSidebar, type MemoryMode } from "@/components/ChatSidebar";
-import { ChatMessage } from "@/components/ChatMessage";
-import { TypingIndicator } from "@/components/TypingIndicator";
-import { ChatInput } from "@/components/ChatInput";
-import { AdInterstitial } from "@/components/AdInterstitial";
-import { BrainLogo } from "@/components/BrainLogo";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { streamChat, type ChatMsg } from "@/lib/streamChat";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Brain } from "lucide-react";
 import { toast } from "sonner";
+import ChatSidebar from "@/components/chat/ChatSidebar";
+import MobileSidebar from "@/components/chat/MobileSidebar";
+import ChatHeader from "@/components/chat/ChatHeader";
+import ChatMessages from "@/components/chat/ChatMessages";
+import ChatInput from "@/components/chat/ChatInput";
+import StatusBar from "@/components/chat/StatusBar";
+import WelcomeMessage from "@/components/chat/WelcomeMessage";
+import { streamChat } from "@/lib/chatApi";
+import { useAuth } from "@/hooks/useAuth";
+import { useConversations } from "@/hooks/useConversations";
+import { useMessages } from "@/hooks/useMessages";
 
-interface Message {
+export type Message = {
   id: string;
   content: string;
   isUser: boolean;
-  isError?: boolean;
-  isStreaming?: boolean;
-  images?: string[];
-}
-
-const BASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const AUTH_HEADER = { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` };
-const IMAGE_GEN_URL = `${BASE_URL}/functions/v1/generate-image`;
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
-}
-
-const WELCOME: Message = {
-  id: "welcome",
-  content:
-    "Hello 👋 I'm **T20-CLASSIC AI**. Ask me anything — I can chat in any language, generate images, write & debug code, and architect entire projects. What are we building today? 🚀",
-  isUser: false,
+  timestamp: Date;
+  imageUrl?: string;
 };
 
+export type AIModel = "pro" | "standard" | "turbo";
+
 const Index = () => {
-  const [messages, setMessages] = useState<Message[]>([WELCOME]);
-  const [isTyping, setIsTyping] = useState(false);
-  const [waitingFirstToken, setWaitingFirstToken] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("t20-pro");
-  const [modelName, setModelName] = useState("T20-CLASSIC Pro");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [memoryMode, setMemoryMode] = useState<MemoryMode>(
-    () => (typeof window !== "undefined" && (localStorage.getItem("t20-memory-mode") as MemoryMode)) || "full"
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
+  const {
+    conversations,
+    loading: convsLoading,
+    createConversation,
+    deleteConversation,
+    deleteAllConversations,
+    updateConversationTitle,
+  } = useConversations(user?.id);
+
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const { messages, loading: msgsLoading, saveMessage, setMessages } = useMessages(
+    currentConversationId,
+    user?.id
   );
+  const [isTyping, setIsTyping] = useState(false);
+  const initializedRef = useRef(false);
+
   useEffect(() => {
-    localStorage.setItem("t20-memory-mode", memoryMode);
-  }, [memoryMode]);
-  const [adOpen, setAdOpen] = useState(false);
-  const [adMessage, setAdMessage] = useState("");
-  const adCallbackRef = useRef<(() => void) | null>(null);
-  const isMobile = useIsMobile();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  const showAd = useCallback((message: string, callback?: () => void) => {
-    setAdMessage(message);
-    adCallbackRef.current = callback || null;
-    setAdOpen(true);
-  }, []);
-
-  const handleAdClose = useCallback(() => {
-    setAdOpen(false);
-    adCallbackRef.current?.();
-    adCallbackRef.current = null;
-  }, []);
-
-  // Auto-scroll only when near bottom
-  useEffect(() => {
-    const c = scrollContainerRef.current;
-    if (!c) return;
-    const nearBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 200;
-    if (nearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (!authLoading && !user) {
+      navigate("/auth");
     }
-  }, [messages, isTyping]);
+  }, [user, authLoading, navigate]);
 
-  const handleModelSelect = (model: string) => {
-    setSelectedModel(model);
-    const modelNames: Record<string, string> = {
-      "t20-pro": "T20-CLASSIC Pro",
-      "t20-standard": "T20-CLASSIC Standard",
-      "t20-turbo": "T20-CLASSIC Turbo",
+  useEffect(() => {
+    // Only run once when conversations are loaded
+    if (user && !convsLoading && !initializedRef.current) {
+      initializedRef.current = true;
+      if (conversations.length === 0) {
+        handleNewChat();
+      } else if (!currentConversationId) {
+        setCurrentConversationId(conversations[0].id);
+      }
+    }
+  }, [user, conversations, convsLoading]);
+
+  const handleNewChat = async () => {
+    const newConv = await createConversation();
+    if (newConv) {
+      setCurrentConversationId(newConv.id);
+      setMessages([]);
+    }
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setCurrentConversationId(id);
+  };
+
+  const handleDeleteConversation = async (id: string) => {
+    await deleteConversation(id);
+    if (id === currentConversationId) {
+      const remaining = conversations.filter((c) => c.id !== id);
+      setCurrentConversationId(remaining[0]?.id || null);
+      if (remaining.length === 0) {
+        handleNewChat();
+      }
+    }
+  };
+
+  const handleClearAll = async () => {
+    await deleteAllConversations();
+    setCurrentConversationId(null);
+    initializedRef.current = false;
+    handleNewChat();
+  };
+
+  const handleSendMessage = async (content: string, imageUrl?: string) => {
+    if (!currentConversationId || !user) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content,
+      isUser: true,
+      timestamp: new Date(),
+      imageUrl,
     };
-    const name = modelNames[model];
-    setModelName(name);
-    showAd(`Switching to ${name}...`, () => {
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), content: `Switched to **${name}** ⚡`, isUser: false },
-      ]);
-    });
-    if (isMobile) setSidebarOpen(false);
-  };
 
-  const chatHistoryRef = useRef<ChatMsg[]>([]);
+    const isFirstMessage = messages.length === 0;
 
-  const generateImage = async (prompt: string): Promise<{ text: string; images: string[] }> => {
-    const resp = await fetch(IMAGE_GEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...AUTH_HEADER },
-      body: JSON.stringify({ prompt }),
-    });
-    if (!resp.ok) {
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(data.error || "Image generation failed");
-    }
-    const data = await resp.json();
-    const imageUrls = (data.images || []).map((img: any) => img.image_url?.url || img).filter(Boolean);
-    return { text: data.text || "", images: imageUrls };
-  };
-
-  const handleSendMessage = async (content: string) => {
-    const userMessage: Message = { id: Date.now().toString(), content, isUser: true };
     setMessages((prev) => [...prev, userMessage]);
+    await saveMessage(userMessage);
     setIsTyping(true);
-    setWaitingFirstToken(true);
 
-    chatHistoryRef.current = [...chatHistoryRef.current, { role: "user", content }];
-    const assistantId = (Date.now() + 1).toString();
     let assistantContent = "";
-    let started = false;
+    const tempId = (Date.now() + 1).toString();
 
-    const historyToSend =
-      memoryMode === "minimal"
-        ? chatHistoryRef.current.slice(-4)
-        : chatHistoryRef.current;
-
-    await streamChat({
-      messages: historyToSend,
-      onFirstToken: () => {
-        // Re-enable input as soon as the first token lands — feels instantaneous
-        setWaitingFirstToken(false);
-      },
-      onDelta: (chunk) => {
-        assistantContent += chunk;
-        if (!started) {
-          started = true;
-          setIsTyping(false);
-          setMessages((prev) => [
-            ...prev,
-            { id: assistantId, content: assistantContent, isUser: false, isStreaming: true },
-          ]);
-        } else {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, content: assistantContent } : m))
-          );
-        }
-      },
-      onDone: async () => {
-        if (assistantContent.trim().startsWith("[IMAGE_REQUEST]")) {
-          const imagePrompt = assistantContent.replace("[IMAGE_REQUEST]", "").trim();
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: "🎨 Generating image…", isStreaming: false } : m
-            )
-          );
-          setIsTyping(true);
-          setWaitingFirstToken(true);
-          try {
-            const result = await generateImage(imagePrompt);
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: result.text || "Here's your generated image:", images: result.images, isStreaming: false }
-                  : m
-              )
-            );
-            chatHistoryRef.current = [
-              ...chatHistoryRef.current,
-              { role: "assistant", content: `[Generated image: ${imagePrompt}]` },
+    try {
+      await streamChat({
+        messages: [...messages, userMessage],
+        onDelta: (chunk) => {
+          assistantContent += chunk;
+          setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && !lastMsg.isUser && lastMsg.id === tempId) {
+              return prev.map((m) =>
+                m.id === tempId ? { ...m, content: assistantContent } : m
+              );
+            }
+            return [
+              ...prev,
+              {
+                id: tempId,
+                content: assistantContent,
+                isUser: false,
+                timestamp: new Date(),
+              },
             ];
-          } catch (err: any) {
-            toast.error(err.message || "Image generation failed");
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: "Sorry, image generation failed.", isError: true, isStreaming: false }
-                  : m
-              )
-            );
+          });
+        },
+        onDone: () => {
+          setIsTyping(false);
+          
+          // Update conversation title from bot's first response
+          if (isFirstMessage && assistantContent.trim()) {
+            // Extract a summary: first sentence or first 50 chars
+            let title = assistantContent.replace(/!\[.*?\]\(.*?\)/g, "").trim(); // Remove image markdown
+            const firstSentence = title.match(/^[^.!?]+[.!?]?/)?.[0] || title;
+            title = firstSentence.slice(0, 50) + (firstSentence.length > 50 ? "..." : "");
+            updateConversationTitle(currentConversationId, title);
           }
-        } else {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, isStreaming: false } : m))
-          );
-          chatHistoryRef.current = [
-            ...chatHistoryRef.current,
-            { role: "assistant", content: assistantContent },
-          ];
-        }
-        setIsTyping(false);
-        setWaitingFirstToken(false);
-      },
-      onError: (err) => {
-        toast.error(err);
-        setIsTyping(false);
-        setWaitingFirstToken(false);
-      },
-    });
+          
+          saveMessage({
+            content: assistantContent,
+            isUser: false,
+          });
+        },
+        onError: (error) => {
+          setIsTyping(false);
+          toast.error(error);
+        },
+      });
+    } catch (error) {
+      setIsTyping(false);
+      toast.error("Failed to send message");
+    }
   };
 
-  const handleNewChat = () => {
-    showAd("Starting fresh conversation…", () => {
-      chatHistoryRef.current = [];
-      setMessages([{ ...WELCOME, id: Date.now().toString() }]);
-    });
-  };
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <Brain className="w-16 h-16 mx-auto mb-4 animate-pulse gradient-text" />
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const showWelcome = messages.length === 0;
 
   return (
-    <div className="flex h-screen overflow-hidden relative">
-      {isMobile && sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-background/70 backdrop-blur-md z-30"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <div className="flex h-screen w-full overflow-hidden">
+      <MobileSidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewChat={handleNewChat}
+        onDeleteConversation={handleDeleteConversation}
+        onClearAll={handleClearAll}
+        onSignOut={signOut}
+      />
 
-      <div
-        className={cn(
-          isMobile ? "fixed inset-y-0 left-0 z-40" : "relative",
-          "transition-all duration-200 ease-out overflow-hidden flex-shrink-0",
-          sidebarOpen
-            ? isMobile ? "translate-x-0 w-64" : "w-64"
-            : isMobile ? "-translate-x-full w-64" : "w-0"
+      <ChatSidebar
+        conversations={conversations}
+        currentConversationId={currentConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewChat={handleNewChat}
+        onDeleteConversation={handleDeleteConversation}
+        onClearAll={handleClearAll}
+        onSignOut={signOut}
+      />
+
+      <div className="flex flex-1 flex-col">
+        <ChatHeader />
+        {showWelcome ? (
+          <WelcomeMessage />
+        ) : (
+          <ChatMessages messages={messages} isTyping={isTyping} />
         )}
-      >
-        <div className="w-64 h-full">
-          <ChatSidebar selectedModel={selectedModel} onModelSelect={handleModelSelect} memoryMode={memoryMode} onMemoryModeChange={setMemoryMode} />
-        </div>
+        <StatusBar modelName="T20-CLASSIC Pro" status="Ready" />
+        <ChatInput onSendMessage={handleSendMessage} disabled={isTyping} />
       </div>
-
-      <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* Subtle grid backdrop */}
-        <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
-
-        {/* Header */}
-        <header className="relative z-10 glass-strong border-b border-border/40 flex items-center py-2.5 px-4 gap-2">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-lg hover:bg-secondary/70 transition-all text-muted-foreground hover:text-foreground"
-            aria-label="Toggle sidebar"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="flex-1 flex items-center justify-center gap-2.5">
-            <BrainLogo size={30} />
-            <div className="text-center">
-              <h1 className="text-sm font-extrabold gradient-text leading-none">T20-CLASSIC AI</h1>
-              <div className="flex items-center justify-center gap-1.5 mt-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                <span className="text-[9px] text-muted-foreground tracking-[0.2em] uppercase font-semibold">
-                  {isTyping ? "Thinking" : waitingFirstToken ? "Streaming" : "Ready"} · {modelName}
-                </span>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handleNewChat}
-            className="p-2 rounded-lg hover:bg-secondary/70 transition-all text-muted-foreground hover:text-foreground"
-            aria-label="New chat"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </header>
-
-        {/* Messages */}
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto chat-scroll relative z-10"
-        >
-          <div className="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-6">
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                content={message.content}
-                isUser={message.isUser}
-                isError={message.isError}
-                isStreaming={message.isStreaming}
-                images={message.images}
-                onDownloadAd={() => showAd("Downloading…")}
-              />
-            ))}
-            {isTyping && <TypingIndicator />}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Input */}
-        <div className="relative z-10">
-          <ChatInput onSend={handleSendMessage} disabled={waitingFirstToken} />
-        </div>
-      </div>
-      <AdInterstitial open={adOpen} onClose={handleAdClose} message={adMessage} />
     </div>
   );
 };
