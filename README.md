@@ -74,6 +74,10 @@ curl -i https://mqudqfsvnvlcptsgdceo.supabase.co/functions/v1/ping -H "apikey: Y
 
 The response should be successful. Then run `bun run dev`, open the local Vite URL, and test chat, image generation, music generation, and song search separately.
 
+### BLAZE-XMD chatbot integration
+
+The `whatsapp-chat` Edge Function is compatible with BLAZE-XMD's `.gpt`, `.ai`, and automatic chatbot calls. Configure BLAZE-XMD with `BLAZE_CHATBOT_API=https://mqudqfsvnvlcptsgdceo.supabase.co/functions/v1/whatsapp-chat`. It accepts `{ "message": "...", "conversation_id": "...", "memory_mode": "full" }` and returns `{ "reply": "...", "conversation_id": "..." }`. The endpoint uses the server-side `GROQ_API_KEY` secret and never exposes it to the client.
+
 ## Deploy
 
 ### Render one-click deployment

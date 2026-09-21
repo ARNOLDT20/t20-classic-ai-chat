@@ -7,25 +7,29 @@ const corsHeaders = {
 };
 
 async function generateReply(messages: Array<{ role: string; content: string }>) {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) return { reply: null, status: 503 };
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o-mini", messages, stream: false }),
+      body: JSON.stringify({
+        model: Deno.env.get("GROQ_MODEL") || "openai/gpt-oss-20b",
+        messages,
+        stream: false,
+      }),
     });
 
     if (!response.ok) {
-      console.error("OpenAI error:", response.status, await response.text());
+      console.error("Groq error:", response.status, await response.text());
       return { reply: null, status: response.status };
     }
 
     const data = await response.json();
     return { reply: data.choices?.[0]?.message?.content || null, status: 200 };
   } catch (error) {
-    console.error("OpenAI request failed:", error);
+    console.error("Groq request failed:", error);
     return { reply: null, status: 503 };
   }
 }
