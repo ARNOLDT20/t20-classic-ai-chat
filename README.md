@@ -45,7 +45,8 @@ supabase db push
 Configure the server-side secrets before deploying the functions:
 
 ```bash
-supabase secrets set OPENAI_API_KEY=your-openai-key
+supabase secrets set GROQ_API_KEY=your-groq-free-key
+supabase secrets set GROQ_MODEL=openai/gpt-oss-20b
 supabase secrets set ELEVENLABS_API_KEY=your-elevenlabs-key
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 supabase secrets set SMM_ASSISTANT_API_KEY=your-smm-api-key
@@ -103,7 +104,8 @@ npm run deploy:functions
 The script links the project, applies migrations, and deploys `chat`, `generate-image`, `generate-music`, `song-search`, `ping`, `smm-assistant`, and `whatsapp-chat`. Set the server-side secrets before running it:
 
 ```bash
-npx supabase secrets set OPENAI_API_KEY=your-openai-key
+npx supabase secrets set GROQ_API_KEY=your-groq-free-key
+npx supabase secrets set GROQ_MODEL=openai/gpt-oss-20b
 npx supabase secrets set ELEVENLABS_API_KEY=your-elevenlabs-key
 npx supabase secrets set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 npx supabase secrets set SMM_ASSISTANT_API_KEY=your-smm-api-key

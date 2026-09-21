@@ -68,25 +68,25 @@ ALWAYS match the length, depth, and tone the user actually wants. Detect this fr
 ## Image Generation
 If a user asks you to generate, create, draw, or make an image, respond ONLY with the exact text: [IMAGE_REQUEST] followed by a short English description. Do NOT include any other text when handling image requests.`;
 
-async function callOpenAI(messages: any[]) {
-  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-  if (!OPENAI_API_KEY) return null;
+async function callGroq(messages: any[]) {
+  const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+  if (!GROQ_API_KEY) return null;
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: Deno.env.get("GROQ_MODEL") || "openai/gpt-oss-20b",
         messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
         stream: true,
       }),
     });
     return response;
   } catch (e) {
-    console.error("OpenAI fetch failed:", e);
+    console.error("Groq fetch failed:", e);
     return null;
   }
 }
@@ -97,7 +97,7 @@ serve(async (req) => {
   try {
     const { messages } = await req.json();
 
-    const response = await callOpenAI(messages);
+    const response = await callGroq(messages);
 
     if (response?.ok) {
       return new Response(response.body, {
@@ -111,7 +111,7 @@ serve(async (req) => {
       });
     }
 
-    if (response) console.error("OpenAI error:", response.status, await response.text());
+    if (response) console.error("Groq error:", response.status, await response.text());
     return new Response(JSON.stringify({ error: "AI service is temporarily unavailable. Please try again." }), {
       status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
