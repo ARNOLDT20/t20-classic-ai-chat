@@ -6,6 +6,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
 };
 
+async function generateReply(messages: Array<{ role: string; content: string }>) {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return { reply: null, status: 503 };
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gpt-4o-mini", messages, stream: false }),
+    });
+
+    if (!response.ok) {
+      console.error("OpenAI error:", response.status, await response.text());
+      return { reply: null, status: response.status };
+    }
+
+    const data = await response.json();
+    return { reply: data.choices?.[0]?.message?.content || null, status: 200 };
+  } catch (error) {
+    console.error("OpenAI request failed:", error);
+    return { reply: null, status: 503 };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -95,21 +119,13 @@ RULES:
       { role: "user", content: message },
     ];
 
-    let reply: string | null = null;
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (OPENAI_API_KEY) {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "gpt-4o-mini", messages, stream: false }),
-      });
-      if (response.ok) reply = (await response.json()).choices?.[0]?.message?.content || null;
-      else console.error("OpenAI error:", response.status, await response.text());
-    }
+    const result = await generateReply(messages);
 
-    if (!reply) {
-      return new Response(JSON.stringify({ error: "AI service is temporarily unavailable" }), {
-        status: 503,
+    if (!result.reply) {
+      return new Response(JSON.stringify({
+        error: result.status === 429 ? "Rate limit exceeded" : "AI service is temporarily unavailable",
+      }), {
+        status: result.status === 429 ? 429 : 503,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -118,11 +134,11 @@ RULES:
     await supabase.from("whatsapp_messages").insert({
       conversation_id: convId,
       role: "assistant",
-      content: reply,
+      content: result.reply,
     });
 
     return new Response(
-      JSON.stringify({ reply, conversation_id: convId }),
+      JSON.stringify({ reply: result.reply, conversation_id: convId }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
